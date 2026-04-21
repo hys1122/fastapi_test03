@@ -53,6 +53,11 @@ def getPosts(request: Request, db:Session = Depends(get_db)):
     )
 
 
+@app.get("/post/new", response_class=HTMLResponse)
+def postNewForm(request: Request):
+    return templates.TemplateResponse(request=request, name="post/new-form.html")
+
+
 @app.post("/post/new")
 def postNew(request: Request, writer: str = Form(...), title: str = Form(...), content: str = Form(...),
             db: Session = Depends(get_db)):
@@ -66,9 +71,10 @@ def postNew(request: Request, writer: str = Form(...), title: str = Form(...), c
     db.execute(query, {"writer":writer, "title":title, "content":content})
     db.commit()
 
-    # 특정 경로로 요청을 다시 하도록 리다일렉트 응답을 준다. 
+
+    # 특정 경로로 요청을 다시 하도록 리다일렉트 응답을 준다.
     return templates.TemplateResponse(
-        request=request, 
+        request=request,
         name="post/alert.html",
         context={
             "msg":"글 정보를 추가 했습니다!",
@@ -76,11 +82,31 @@ def postNew(request: Request, writer: str = Form(...), title: str = Form(...), c
         }
     )
 
+
 @app.get("/post/delete/{num}") # {num} 경로변수 선언 (path variable)
 def delete(num: int, db: Session = Depends(get_db)): # 경로 변수의 이름과 함수의 매개변수의 이름을 일치시킨다
     # num 에는 삭제할 글의 번호가 들어 있다.
     query = text("DELETE FROM post WHERE num=:num")
     db.execute(query, {"num":num})
     db.commit()
-    #클라이언트가 /post로 다시 요청하라고 강요하기
+    # 클라이언트가 /post 로 다시 요청하라고 강요하기
     return RedirectResponse("/post", status_code=302)
+
+
+@app.get("/post/edit/{num}")
+def edit(num: int, request: Request, db: Session = Depends(get_db)):
+    # 수정할 글정보를 읽어오기 위한 query 작성
+    query = text("""
+        SELECT num, writer, title, content, created_at
+        FROM post
+        WHERE num=:num
+    """)
+    # PK 를 이용해서 select 하는 것이기 때문에 row 는 1개다 따라서 .fetchone() 함수를 호출한다.
+    row = db.execute(query, {"num":num}).fetchone()
+    return templates.TemplateResponse(
+        request=request,
+        name="post/edit.html",
+        context={
+            "post":row
+        }
+    )
